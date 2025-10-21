@@ -85,6 +85,24 @@ export const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
     }
   };
 
+  const handleDownload = (type: 'vocals' | 'instrumental') => {
+    if (!file) return;
+    
+    // In a real implementation, this would download the actual processed files
+    // For now, we'll simulate the download
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(file);
+    link.download = `${file.name.replace(/\.[^/.]+$/, '')}_${type}.mp3`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({
+      title: "Download started",
+      description: `Downloading ${type} track...`,
+    });
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl">
@@ -192,10 +210,18 @@ export const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
               
               {progress === 100 && (
                 <div className="grid grid-cols-2 gap-4">
-                  <Button variant="outline" size="lg">
+                  <Button 
+                    variant="outline" 
+                    size="lg"
+                    onClick={() => handleDownload('vocals')}
+                  >
                     Download Vocals
                   </Button>
-                  <Button variant="outline" size="lg">
+                  <Button 
+                    variant="outline" 
+                    size="lg"
+                    onClick={() => handleDownload('instrumental')}
+                  >
                     Download Instrumental
                   </Button>
                 </div>
