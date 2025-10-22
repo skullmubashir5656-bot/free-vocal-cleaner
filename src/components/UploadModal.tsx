@@ -5,6 +5,13 @@ import { Upload, X, FileAudio, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+
+interface ProcessedAudio {
+  vocalsUrl: string;
+  instrumentalUrl: string;
+}
+
 interface UploadModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -15,6 +22,7 @@ export const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [processedAudio, setProcessedAudio] = useState<ProcessedAudio | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -54,53 +62,99 @@ export const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
     if (!file) return;
     
     setIsProcessing(true);
-    setProgress(0);
+    setProgress(10);
     
-    // Simulate processing
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setTimeout(() => {
-            setIsProcessing(false);
-            toast({
-              title: "Processing complete!",
-              description: "Your vocal and instrumental tracks are ready.",
-            });
-            // In a real app, you'd show download links here
-          }, 500);
-          return 100;
-        }
-        return prev + 10;
+    try {
+      // Create form data
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("fileName", file.name);
+
+      setProgress(20);
+
+      // Call edge function
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/separate-vocals`, {
+        method: "POST",
+        body: formData,
       });
-    }, 400);
+
+      setProgress(50);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to process audio");
+      }
+
+      const data = await response.json();
+      
+      setProgress(90);
+
+      if (data.success && data.vocalsUrl && data.instrumentalUrl) {
+        setProcessedAudio({
+          vocalsUrl: data.vocalsUrl,
+          instrumentalUrl: data.instrumentalUrl,
+        });
+        setProgress(100);
+        setIsProcessing(false);
+        
+        toast({
+          title: "Processing complete!",
+          description: "Your vocal and instrumental tracks are ready for download.",
+        });
+      } else {
+        throw new Error("Invalid response from server");
+      }
+    } catch (error) {
+      console.error("Processing error:", error);
+      setIsProcessing(false);
+      setProgress(0);
+      
+      toast({
+        title: "Processing failed",
+        description: error instanceof Error ? error.message : "Failed to separate audio. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleRemoveFile = () => {
     setFile(null);
     setProgress(0);
     setIsProcessing(false);
+    setProcessedAudio(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  const handleDownload = (type: 'vocals' | 'instrumental') => {
-    if (!file) return;
+  const handleDownload = async (type: 'vocals' | 'instrumental') => {
+    if (!processedAudio) return;
     
-    // In a real implementation, this would download the actual processed files
-    // For now, we'll simulate the download
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(file);
-    link.download = `${file.name.replace(/\.[^/.]+$/, '')}_${type}.mp3`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast({
-      title: "Download started",
-      description: `Downloading ${type} track...`,
-    });
+    try {
+      const url = type === 'vocals' ? processedAudio.vocalsUrl : processedAudio.instrumentalUrl;
+      const response = await fetch(url);
+      const blob = await response.blob();
+      
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${file?.name.replace(/\.[^/.]+$/, '') || 'audio'}_${type}.wav`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+      
+      toast({
+        title: "Download started",
+        description: `Downloading ${type} track...`,
+      });
+    } catch (error) {
+      console.error("Download error:", error);
+      toast({
+        title: "Download failed",
+        description: "Failed to download file. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -208,22 +262,29 @@ export const UploadModal = ({ open, onOpenChange }: UploadModalProps) => {
                 </Button>
               )}
               
-              {progress === 100 && (
-                <div className="grid grid-cols-2 gap-4">
-                  <Button 
-                    variant="outline" 
-                    size="lg"
-                    onClick={() => handleDownload('vocals')}
-                  >
-                    Download Vocals
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="lg"
-                    onClick={() => handleDownload('instrumental')}
-                  >
-                    Download Instrumental
-                  </Button>
+              {progress === 100 && processedAudio && (
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-primary/10 border border-primary/20">
+                    <p className="text-sm text-center font-medium text-primary">
+                      ✓ Processing complete! Download your separated tracks below.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <Button 
+                      variant="outline" 
+                      size="lg"
+                      onClick={() => handleDownload('vocals')}
+                    >
+                      Download Vocals
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="lg"
+                      onClick={() => handleDownload('instrumental')}
+                    >
+                      Download Instrumental
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
