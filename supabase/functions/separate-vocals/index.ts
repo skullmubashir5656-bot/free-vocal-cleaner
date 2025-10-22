@@ -64,11 +64,11 @@ serve(async (req) => {
 
     // Use Replicate to separate vocals
     const output = await replicate.run(
-      "cjwbw/deezer-spleeter:583719b4d6c2e81f9ce5a6a2b8f6d1e6c1c5b7d2c6b1b3f2e8c4f5a6b7c8d9e0",
+      "soykertje/spleeter:df0b97c1a5eebfb6168d8693757d9c8e18745dd9ec6f3d5f4a1f8d8c9f0e1a2b",
       {
         input: {
           audio: urlData.publicUrl,
-          stems: "vocals,accompaniment",
+          stems: 2,
         },
       }
     ) as { vocals?: string; accompaniment?: string };
