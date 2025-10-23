@@ -27,7 +27,7 @@ export const Hero = ({ onUploadClick }: { onUploadClick: () => void }) => {
           {/* Main Heading */}
           <h1 className="text-5xl md:text-7xl font-bold leading-tight">
             Remove Vocals from
-            <span className="block gradient-hero bg-clip-text text-transparent">
+            <span className="block gradient-hero bg-clip-text text-transparent relative z-10">
               Any Song for Free
             </span>
           </h1>
