@@ -62,28 +62,31 @@ serve(async (req) => {
 
     console.log("Starting vocal separation with Replicate...");
 
-    // Use Replicate to separate vocals
+    // Use Replicate to separate vocals using MVSEP-MDX23
     const output = await replicate.run(
-      "soykertje/spleeter:df0b97c1a5eebfb6168d8693757d9c8e18745dd9ec6f3d5f4a1f8d8c9f0e1a2b",
+      "lucataco/mvsep-mdx23-music-separation:510b9b91aec1bfa7d634e6c06ee80c18492fb0fc06aa1474533fbda90dd3dba4",
       {
         input: {
           audio: urlData.publicUrl,
-          stems: 2,
         },
       }
-    ) as { vocals?: string; accompaniment?: string };
+    ) as string[];
 
     console.log("Separation complete, output:", output);
 
-    if (!output.vocals || !output.accompaniment) {
-      throw new Error("Failed to process audio: No output from Replicate");
+    if (!output || !Array.isArray(output) || output.length < 2) {
+      throw new Error("Failed to process audio: Invalid output from Replicate");
     }
 
+    // The output is an array of URLs [vocals, instrumental]
+    const vocalsUrl = output[0];
+    const instrumentalUrl = output[1];
+
     // Download and store the separated tracks
-    const vocalsResponse = await fetch(output.vocals);
+    const vocalsResponse = await fetch(vocalsUrl);
     const vocalsBuffer = await vocalsResponse.arrayBuffer();
     
-    const instrumentalResponse = await fetch(output.accompaniment);
+    const instrumentalResponse = await fetch(instrumentalUrl);
     const instrumentalBuffer = await instrumentalResponse.arrayBuffer();
 
     const timestamp = Date.now();
